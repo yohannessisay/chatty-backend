@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "es6",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist", // This is where the compiled JavaScript files will go
+    "rootDir": "./"     // This sets the root directory for your source files
+  },
+  "include": [
+    "controller/**/*",
+    "service/**/*",
+    "db/**/*",
+    "*.ts" // Include all TypeScript files in the root
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.spec.ts"
+  ]
+}
