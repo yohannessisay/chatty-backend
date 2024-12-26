@@ -119,7 +119,7 @@ export const getUsersService = async (): Promise<{
   try {
     const users = (await db.all(`
       SELECT 
-        users.*, 
+        users.username,users.id,users.lastname,users.firstname, 
         activeUsers.lastSeen,
         activeUsers.isActive
       FROM 
@@ -142,5 +142,30 @@ export const getUsersService = async (): Promise<{
   } catch (error) {
     console.error("Error fetching user:", error);
     return { success: false, message: "Error fetching user" };
+  }
+};
+
+export const findRecipientSocketId = async (recipientId: string): Promise<string | null> => {
+  const db = await openDb();
+   
+  const connection = await db.get(
+    "SELECT socketId FROM connections WHERE userId LIKE ?",
+    [`%${recipientId}`] 
+  );
+
+  return connection?.socketId || null;
+};
+
+export const saveMissedMessage = async (recipientId: string, message: any) => {
+  const db = await openDb();
+  try {
+    await db.run(
+      `INSERT INTO missedMessages (recipientId, senderId, content, timestamp) 
+       VALUES (?, ?, ?, ?)`,
+      [recipientId, message.senderId, message.content, message.timestamp]
+    );
+    console.log("Missed message saved.");
+  } catch (error) {
+    console.error("Error saving missed message:", error);
   }
 };

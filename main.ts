@@ -11,12 +11,15 @@ import {
 import cors from "cors";
 import {
   addConnection,
+  createRoom,
   findRecipientSocketId,
+  findRoom,
   getAllMissedMessage,
   initializeDb,
   removeConnection,
   updateActiveStatus,
 } from "./db";
+import { saveMissedMessage } from "./services/userService";
 
 const app = express();
 const httpServer = createServer(app);
@@ -38,28 +41,53 @@ const io = new Server(httpServer, {
 
 io.on("connection", (socket) => {
   const userId: string = socket.handshake.query.userId as string;
+
   const allMissedMessages = getAllMissedMessage(userId);
   updateActiveStatus(userId);
   addConnection(userId, socket.id);
+
   socket.emit("missedMessages", allMissedMessages);
 
-  socket.on("joinRoom", ({ loggedInUserId, recipientId }) => {
-    const loggedInUserRoomId = loggedInUserId.slice(
-      loggedInUserId.length - 12,
-      loggedInUserId.length
-    );
-    const room = [loggedInUserRoomId, recipientId].join("_");
+  socket.on("joinRoom", async ({ loggedInUserId, recipientId }) => {
+    let room = await findRoom(loggedInUserId, recipientId);
+  
+    if (!room) {
+      room = [loggedInUserId, recipientId].sort().join("_");
+      await createRoom(loggedInUserId, recipientId, room);
+    }
+  
     socket.join(room);
-    console.log(`User ${loggedInUserRoomId} joined room: ${room}`);
+    io.to(room).emit("roomJoined", { senderId: loggedInUserId, recipientId, roomId: room });
+  
+    // Check if the recipient is online and join them to the room
+    const recipientSocketId = await findRecipientSocketId(recipientId);
+    if (recipientSocketId) {
+      io.sockets.sockets.get(recipientSocketId)?.join(room);
+    }
+  
+    console.log(`User ${loggedInUserId} joined room: ${room}`);
   });
 
   socket.on("message", async ({ data, recipientId }) => {
-    const recipientSocketId = await findRecipientSocketId(recipientId);
-    if (recipientSocketId) {
-      io.to(recipientSocketId).emit("receiveMessage", {
-        data,
-        senderId: userId,
-      });
+    const room = [userId, recipientId].sort().join("_");
+
+    const message = {
+      senderId: userId,
+      recipientId,
+      content: data,
+      timestamp: new Date().toISOString(),
+    };
+
+    try {
+      const recipientSocketId = await findRecipientSocketId(recipientId);
+
+      if (recipientSocketId) {
+        io.to(room).emit("receiveMessage", message);
+      } else {
+        await saveMissedMessage(recipientId, message);
+      }
+    } catch (error) {
+      console.error("Error handling message:", error);
     }
   });
 

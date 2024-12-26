@@ -14,9 +14,9 @@ export const openDb = async (): Promise<Database> => {
   }
   return dbInstance;
 };
-
+let db: any;
 export async function initializeDb() {
-  const db = await openDb();
+  db = await openDb();
   await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -26,6 +26,7 @@ export async function initializeDb() {
       password TEXT
     )
   `);
+
   await db.exec(`
     CREATE TABLE IF NOT EXISTS connections (
       userId TEXT PRIMARY KEY,
@@ -36,22 +37,61 @@ export async function initializeDb() {
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS missedMessages (
-      userId TEXT PRIMARY KEY,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId TEXT,
       senderId TEXT,
+      recipientId TEXT,
+      content TEXT,
+      timestamp INTEGER,
       isSeen BOOLEAN
     )
   `);
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS activeUsers (
-     userId TEXT PRIMARY KEY,
+      userId TEXT PRIMARY KEY,
       lastSeen TEXT,
       isActive BOOLEAN
     )
   `);
+
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS rooms (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userA TEXT,
+      userB TEXT,
+      roomId TEXT
+    )
+  `);
 }
+
+export const findRoom = async (userA: string, userB: string) => {
+  const room = await db.get(
+    `
+    SELECT roomId FROM rooms
+    WHERE (userA = ? AND userB = ?) OR (userA = ? AND userB = ?)
+  `,
+    [userA, userB, userB, userA]
+  );
+
+  return room ? room.roomId : null;
+};
+
+export const createRoom = async (
+  userA: string,
+  userB: string,
+  roomId: string
+) => {
+  await db.run(
+    `
+    INSERT INTO rooms (userA, userB, roomId)
+    VALUES (?, ?, ?)
+  `,
+    [userA, userB, roomId]
+  );
+};
+
 export async function addConnection(userId: string, socketId: string) {
-  const db = await openDb();
   const timestamp = Math.floor(Date.now() / 1000);
   await db.run(
     `
@@ -65,27 +105,24 @@ export async function addConnection(userId: string, socketId: string) {
 }
 
 export async function removeConnection(userId: string) {
-  const db = await openDb();
   await db.run(`DELETE FROM connections WHERE userId = ?`, userId);
 }
 
 export async function findRecipientSocketId(recipientId: string) {
-  const db = await openDb();
-  const row = await db.get(
-    `SELECT socketId FROM connections WHERE userId = ?`,
-    recipientId
+  const connection = await db.get(
+    "SELECT socketId FROM connections WHERE userId LIKE ?",
+    [`%${recipientId}`]
   );
-  return row ? row.socketId : null;
+
+  return connection?.socketId || null;
 }
 
 async function cleanupStaleConnections() {
-  const db = await openDb();
   const threshold = Math.floor(Date.now() / 1000) - STALE_TIMEOUT;
   await db.run(`DELETE FROM connections WHERE lastActive < ?`, threshold);
   console.log("Stale connections removed.");
 }
 export async function addMissedMessage(userId: string, senderId: string) {
-  const db = await openDb();
   await db.run(
     `
     INSERT INTO missedMessages (userId, senderId, isSeen) 
@@ -98,7 +135,6 @@ export async function addMissedMessage(userId: string, senderId: string) {
 }
 
 export async function removeMissedMessage(userId: string, senderId: string) {
-  const db = await openDb();
   await db.run(`DELETE FROM missedMessages WHERE userId = ? AND senderId=?`, [
     userId,
     senderId,
@@ -106,11 +142,9 @@ export async function removeMissedMessage(userId: string, senderId: string) {
 }
 
 export async function getAllMissedMessage(userId: string) {
-  const db = await openDb();
   return await db.run(`SELECT * FROM missedMessages WHERE userId = ?`, userId);
 }
 export async function updateActiveStatus(userId: string) {
-  const db = await openDb();
   await db.run(
     `
     INSERT INTO activeUsers (userId, lastSeen, isActive) 
