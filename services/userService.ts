@@ -1,7 +1,23 @@
 import { openDb } from "../db";
 import bcrypt from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
-
+import jwt from "jsonwebtoken";
+type User = {
+  id: string;
+  firstname: string;
+  lastname: string;
+  username: string;
+  password: string;
+};
+type UserWithStatus = {
+  id: string;
+  firstname: string;
+  lastname: string;
+  username: string;
+  password: string;
+  lastSeen: string;
+  isActive: string;
+};
 export const addUserService = async (
   firstname: string,
   lastname: string,
@@ -27,25 +43,36 @@ export const addUserService = async (
 export const loginService = async (
   email: string,
   password: string
-): Promise<{ success: boolean; message: string }> => {
+): Promise<{ success: boolean; message: string; accessToken?: string }> => {
   try {
     const db = await openDb();
-    
-    const user = await db.get("SELECT * FROM users WHERE username = ?", [email]);
+    const jwtKey = process.env.JWT_SECRET_KEY ?? "";
+    const user = await db.get("SELECT * FROM users WHERE username = ?", [
+      email,
+    ]);
 
     if (!user) {
-      
       return { success: false, message: "User not found" };
     }
-    const hashedPassword = await bcrypt.hash("test", 10); 
-
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
       return { success: false, message: "Invalid credentials" };
     }
+    const payload = {
+      username: user.username,
+      firstName: user.firstname,
+      lastName: user.lastname,
+      id: user.id,
+    };
 
-    return { success: true, message: "Login successful" };
+    const token = jwt.sign(payload, jwtKey, { expiresIn: "1h" });
+
+    return {
+      success: true,
+      message: "Logged in successfully",
+      accessToken: token,
+    };
   } catch (error) {
     console.error("Error logging in user:", error);
     return { success: false, message: "Error logging in" };
@@ -73,6 +100,42 @@ export const getUserByUserNameService = async (
 
     if (user) {
       return { success: true, message: "User fetched successfully", user };
+    } else {
+      return { success: false, message: "User not found" };
+    }
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    return { success: false, message: "Error fetching user" };
+  }
+};
+
+export const getUsersService = async (): Promise<{
+  success: boolean;
+  message: string;
+  users?: UserWithStatus[];
+}> => {
+  const db = await openDb();
+
+  try {
+    const users = (await db.all(`
+      SELECT 
+        users.*, 
+        activeUsers.lastSeen,
+        activeUsers.isActive
+      FROM 
+        users 
+      LEFT JOIN 
+        activeUsers 
+      ON 
+        users.id = activeUsers.userId
+    `)) as UserWithStatus[];
+
+    if (users.length > 0) {
+      return {
+        success: true,
+        message: "Users fetched successfully",
+        users: users,
+      };
     } else {
       return { success: false, message: "User not found" };
     }

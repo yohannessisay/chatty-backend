@@ -1,21 +1,22 @@
 import fs from "fs";
-import { pki, util } from "node-forge";
-
+import { privateDecrypt, constants } from "crypto";
 const privateKeyPem = fs.readFileSync("private-key.pem", "utf8");
-const publicKeyPem = fs.readFileSync("public-key.pem", "utf8");
+export const decryptData = (encryptedDataBase64: string) => {
+  const encryptedData = Buffer.from(encryptedDataBase64, "base64");
 
-const privateKey = pki.privateKeyFromPem(privateKeyPem);
-const publicKey = pki.publicKeyFromPem(publicKeyPem);
+  try {
+    const decrypted = privateDecrypt(
+      {
+        key: privateKeyPem,
+        padding: constants.RSA_PKCS1_OAEP_PADDING,
+        oaepHash: "sha256",
+      },
+      encryptedData
+    );
 
-export const encryptData = (data: string): string => {
-  const encrypted = publicKey.encrypt(data, "RSA-OAEP");
-  return util.encode64(encrypted);
-};
-
-export const decryptData = (encryptedData: string): string => {
-  const decrypted = privateKey.decrypt(
-    util.decode64(encryptedData),
-    "RSA-OAEP"
-  );
-  return decrypted;
+    return decrypted.toString("utf8");
+  } catch (err) {
+    console.error("Decryption failed:", err);
+    throw new Error("Failed to decrypt data");
+  }
 };

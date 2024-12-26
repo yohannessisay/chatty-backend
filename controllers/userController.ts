@@ -1,7 +1,8 @@
-import { decryptData, encryptData } from "../services/security";
+import { decryptData } from "../services/security";
 import {
   addUserService,
   getUserByUserNameService,
+  getUsersService,
   loginService,
 } from "./../services/userService";
 import { Request, Response } from "express";
@@ -31,12 +32,10 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
   const entries = Object.entries(body);
 
   if (entries.length < 2) {
-    return res
-      .status(400)
-      .json({
-        success: false,
-        message: "Expected at least two key-value pairs",
-      });
+    return res.status(400).json({
+      success: false,
+      message: "Expected at least two key-value pairs",
+    });
   }
   const [firstPair, secondPair] = entries;
   const [emailKey, emailValue] = firstPair;
@@ -49,7 +48,7 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
   if (result.success) {
     return res.status(201).json(result);
   } else {
-    return res.status(500).json(result);
+    return res.status(403).json(result);
   }
 };
 
@@ -69,6 +68,19 @@ export const getUserByUserName = async (
 
   if (result.success) {
     return res.status(200).json({ success: true, user: result.user });
+  } else {
+    return res.status(404).json({ success: false, message: result.message });
+  }
+};
+
+export const getUsers = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const result = await getUsersService();
+
+  if (result.success) {
+    return res.status(200).json({ success: true, users: result.users });
   } else {
     return res.status(404).json({ success: false, message: result.message });
   }
