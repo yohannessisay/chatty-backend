@@ -56,6 +56,16 @@ export async function initializeDb() {
   `);
 
   await db.exec(`
+    CREATE TABLE IF NOT EXISTS publicKeys (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      recipientId TEXT NOT NULL,
+      senderId TEXT NOT NULL,
+      publicKey TEXT NOT NULL,
+      createdAt TEXT NOT NULL
+    )
+  `);
+
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS rooms (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       userA TEXT,

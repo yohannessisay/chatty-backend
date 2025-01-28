@@ -1,4 +1,4 @@
-import { decryptWord } from "./controllers/securityController";
+import { decryptWord, getPublicKeys, storePublicKey } from "./controllers/securityController";
 import express from "express";
 import { createServer } from "http";
 import { Server, Socket } from "socket.io";
@@ -20,6 +20,7 @@ import {
   updateActiveStatus,
 } from "./db";
 import { saveMissedMessage } from "./services/userService";
+import { processDecryptedMessages } from "./services/security";
 
 const app = express();
 const httpServer = createServer(app);
@@ -68,6 +69,11 @@ io.on("connection", (socket) => {
     console.log(`User ${loggedInUserId} joined room: ${room}`);
   });
 
+  socket.on("send-public-key", async ({ recipientId, publicKey }) => {
+    
+  });
+
+
   socket.on("message", async ({ data, recipientId }) => {
     const room = [userId, recipientId].sort().join("_");
 
@@ -100,8 +106,11 @@ io.on("connection", (socket) => {
 app.post("/register", registerUser);
 app.post("/login", login);
 app.get("/user/:username", getUserByUserName);
+app.get("/user/getPublicKeys/:recipientId", getPublicKeys);
+app.post("/user/connect", storePublicKey);
 app.get("/users", getUsers);
 app.post("/decrypt", decryptWord);
+app.post("/processMessage", processDecryptedMessages);
 initializeDb();
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

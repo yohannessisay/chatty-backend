@@ -85,3 +85,4 @@ export const getUsers = async (
     return res.status(404).json({ success: false, message: result.message });
   }
 };
+
