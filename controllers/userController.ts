@@ -4,6 +4,7 @@ import {
   getUserByUserNameService,
   getUsersService,
   loginService,
+  updateMissedMessageService,
 } from "./../services/userService";
 import { Request, Response } from "express";
 
@@ -86,3 +87,17 @@ export const getUsers = async (
   }
 };
 
+export const updateSeenMessage = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { id } = req.body;
+
+  const result = await updateMissedMessageService(id);
+
+  if (result) {
+    return res.status(201).json();
+  } else {
+    return res.status(500).json(result);
+  }
+};

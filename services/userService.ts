@@ -145,27 +145,51 @@ export const getUsersService = async (): Promise<{
   }
 };
 
-export const findRecipientSocketId = async (recipientId: string): Promise<string | null> => {
+export const findRecipientSocketIdService = async (
+  recipientId: string
+): Promise<string | null> => {
   const db = await openDb();
-   
+
   const connection = await db.get(
     "SELECT socketId FROM connections WHERE userId LIKE ?",
-    [`%${recipientId}`] 
+    [`%${recipientId}`]
   );
 
   return connection?.socketId || null;
 };
-
-export const saveMissedMessage = async (recipientId: string, message: any) => {
+export const saveMissedMessageService = async (
+  recipientId: string,
+  message: any,
+  roomId: string
+) => {
   const db = await openDb();
   try {
     await db.run(
-      `INSERT INTO missedMessages (recipientId, senderId, content, timestamp) 
-       VALUES (?, ?, ?, ?)`,
-      [recipientId, message.senderId, message.content, message.timestamp]
+      `INSERT INTO missedMessages (recipientId, senderId, content, timestamp,roomId,isSeen) 
+       VALUES (?, ?, ?, ?,?,?)`,
+      [
+        recipientId,
+        message.senderId,
+        message.content,
+        message.timestamp,
+        roomId,
+        false,
+      ]
     );
     console.log("Missed message saved.");
   } catch (error) {
     console.error("Error saving missed message:", error);
+  }
+};
+export const updateMissedMessageService = async (
+  id: string,
+) => {
+  const db = await openDb();
+  try {
+    await db.run(`DELETE FROM missedMessages WHERE id = ?`, id);
+    return true;
+  } catch (error) {
+    console.error("Error saving missed message:", error);
+    return false;
   }
 };

@@ -43,6 +43,7 @@ export async function initializeDb() {
       recipientId TEXT,
       content TEXT,
       timestamp INTEGER,
+      roomId TEXT,
       isSeen BOOLEAN
     )
   `);
@@ -152,7 +153,14 @@ export async function removeMissedMessage(userId: string, senderId: string) {
 }
 
 export async function getAllMissedMessage(userId: string) {
-  return await db.run(`SELECT * FROM missedMessages WHERE userId = ?`, userId);
+  const messages = await db.get(
+    "SELECT * FROM missedMessages WHERE recipientId = ?",
+    [userId]
+  );
+  if (!messages) {
+    return { success: false, message: "no missed messages found" };
+  }
+  return { success: true, message: "missed messages found", messages };
 }
 export async function updateActiveStatus(userId: string) {
   await db.run(
